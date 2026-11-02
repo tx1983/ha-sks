@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SKS sign in",
+        "description": "Enter the login and password of your «Российские коммунальные системы» personal account (lk.roscomsys.ru).",
+        "data": {
+          "login": "Login",
+          "password": "Password"
+        }
+      },
+      "account": {
+        "title": "Select account",
+        "description": "Several personal accounts are bound to this login. Choose which one this entry should track — you can add the integration again for another account.",
+        "data": {
+          "account_id": "Personal account (ЛС)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authentication required",
+        "description": "The stored credentials no longer sign in. Re-enter your «Российские коммунальные системы» login and password.",
+        "data": {
+          "login": "Login",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to SKS",
+      "invalid_auth": "Invalid login or password"
+    },
+    "abort": {
+      "already_configured": "This account is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Update interval, minutes"
+        }
+      }
+    }
+  }
+}

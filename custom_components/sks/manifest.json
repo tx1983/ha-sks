@@ -1,0 +1,12 @@
+{
+  "domain": "sks",
+  "name": "SKS",
+  "codeowners": ["@tx1983"],
+  "config_flow": true,
+  "documentation": "https://github.com/tx1983/ha-sks",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/tx1983/ha-sks/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
