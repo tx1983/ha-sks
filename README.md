@@ -9,6 +9,7 @@ Unofficial [Home Assistant](https://www.home-assistant.io/) integration for the 
 - **Monthly accruals** — charged sum (RUB) and consumption (m³) for the current billing period with tariff details; the full accrual history (balance in/out, charged, payments) in attributes
 - **Payments** — last payment amount with date and source; full payment history in attributes
 - **Notifications** — unread count with the notification list in attributes
+- **Reading submission** — a number input on each meter device plus a «Передать показания» button that posts the pending values of its whole meter group (ХВС/ГВС assembly) through the cabinet's form, like the site does. For automations there is also a `sks.submit_reading` service (target: the meter's «Новое показание» input; field: `value`)
 - **History backfill** — one-off import of dated meter readings, monthly accrual sums (₽) and monthly consumption (m³, single-meter accounts) into the sensors' long-term statistics, so the History graph and the dashboard show past periods right away
 - **Login + password auth** — regular Laravel form login; the `captcha_code_authorization` field is obtained automatically via the cabinet's own `captchaRKS/captchaQuery` endpoint, no captcha solving needed. Re-authentication is requested only if the credentials themselves are rejected
 - **Configurable polling interval** (15–1440 min, default 60)
@@ -32,7 +33,7 @@ The cabinet is a classic server-rendered Laravel site — there is no JSON API. 
 ## Notes
 
 - Parsing relies on the cabinet's current page markup (tables and label/value blocks on `/SCS/account/{id}`, `/counters`, `/accruals`). If the site changes its layout, some sensors may go `unavailable` — open an issue with a saved HTML copy of the page.
-- Read-only: submitting meter readings and payments are not supported.
+- Payments are not supported — readings can be submitted, paying still requires the cabinet.
 
 ## Disclaimer
 

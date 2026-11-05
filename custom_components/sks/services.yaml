@@ -1,0 +1,15 @@
+submit_reading:
+  target:
+    entity:
+      integration: sks
+      domain: number
+  fields:
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 99999.999
+          step: 0.001
+          mode: box
+          unit_of_measurement: m³

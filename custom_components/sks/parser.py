@@ -131,6 +131,44 @@ def extract_form_fields(html: str, form_id: str) -> dict[str, str]:
     return parser.fields
 
 
+_CSRF_INPUT_RE = re.compile(r"<input[^>]*name=[\"']_token[\"'][^>]*>", re.I)
+_INPUT_VALUE_RE = re.compile(r"value=[\"']([^\"']*)", re.I)
+
+
+def extract_csrf_token(html: str) -> str | None:
+    """Value of the hidden ``_token`` input (Laravel CSRF token).
+
+    Used where the wrapping <form> has no stable id — the token is
+    session-scoped, so it must be re-read from a fresh page before POST.
+    """
+    if m := _CSRF_INPUT_RE.search(html):
+        if v := _INPUT_VALUE_RE.search(m.group(0)):
+            return v.group(1) or None
+    return None
+
+
+_ALERT_RE = re.compile(
+    r"<(?:div|p|li|span)[^>]*class=[\"'][^\"']*"
+    r"(?:alert|invalid-feedback|text-danger|help-block|error)[^\"']*[\"']"
+    r"[^>]*>(.*?)</(?:div|p|li|span)>",
+    re.I | re.S,
+)
+
+
+def extract_alerts(html: str) -> list[str]:
+    """Texts of Bootstrap alert / validation-error blocks.
+
+    Read from a form re-render (HTTP 200 after POST): validation errors
+    appear in these blocks instead of the usual 302 redirect.
+    """
+    out: list[str] = []
+    for m in _ALERT_RE.finditer(html):
+        text = " ".join(unescape(_TAG_RE.sub(" ", m.group(1))).split())
+        if text:
+            out.append(text[:300])
+    return out
+
+
 _BLOCK_END_RE = re.compile(
     r"</(?:div|p|tr|td|th|li|dt|dd|h[1-6]|section|article|header|footer|"
     r"span|a|b|strong|small|label|button|option|select|caption)>",
