@@ -34,6 +34,9 @@ class SksCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ),
         )
         self.client = client
+        # Registry id of the account («ЛС») device — set in async_setup_entry,
+        # meter devices link to it through via_device_id.
+        self.account_device_id: str | None = None
         # Values typed into the reading NumberEntities, waiting for the
         # submit button: {counter_id: value} (counter_id == serial).
         self.pending: dict[str, float] = {}

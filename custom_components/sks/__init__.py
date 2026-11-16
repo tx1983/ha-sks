@@ -6,11 +6,13 @@ from datetime import timedelta
 
 import voluptuous as vol
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers.start import async_at_started
 
 from .api import SksClient
 from .const import (
@@ -121,15 +123,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: SksConfigEntry) -> bool:
 
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    # Account («ЛС») device up front: meter devices hang under it through
+    # via_device_id, which needs the parent's registry id at creation time.
+    account_id = str(
+        (coordinator.data or {}).get("account_id") or entry.unique_id or "account"
+    )
+    coordinator.account_device_id = (
+        dr.async_get(hass)
+        .async_get_or_create(
+            config_entry_id=entry.entry_id, identifiers={(DOMAIN, account_id)}
+        )
+        .id
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    # Backfill meter/accrual history into long-term statistics. Must finish
-    # inside setup — if the recorder compiles a zero-point row (sum=0) before
-    # the imported tail lands, the dashboard shows a huge negative delta seam.
+
+    # Backfill meter/accrual history into long-term statistics in the
+    # background once HA has started: during boot the recorder doesn't work
+    # its queue yet, so doing it inside setup only held the entry back.
+    @callback
+    def _start_history_import(_hass: HomeAssistant) -> None:
+        entry.async_create_background_task(
+            hass,
+            _async_import_history(hass, coordinator),
+            f"{DOMAIN} history import {entry.entry_id}",
+        )
+
+    entry.async_on_unload(async_at_started(hass, _start_history_import))
+    return True
+
+
+async def _async_import_history(
+    hass: HomeAssistant, coordinator: SksCoordinator
+) -> None:
     try:
         await async_import_history(hass, coordinator)
     except Exception:
         _LOGGER.exception("Не удалось импортировать историю счётчиков")
-    return True
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: SksConfigEntry) -> None:

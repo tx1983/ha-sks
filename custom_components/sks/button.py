@@ -67,7 +67,7 @@ class SksSubmitButton(CoordinatorEntity[SksCoordinator], ButtonEntity):
             "identifiers": {
                 (DOMAIN, f"counter_{account_id}_{self._counter_id}")
             },
-            "via_device": (DOMAIN, self.account_id),
+            "via_device_id": coordinator.account_device_id,
             "name": _counter_name(counter),
             "manufacturer": "СКС",
             "model": counter.get("model") or counter.get("serial"),

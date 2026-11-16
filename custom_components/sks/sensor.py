@@ -482,7 +482,7 @@ class SksCounterSensor(SksBaseSensor):
         super().__init__(coordinator, account_id)
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"counter_{account_id}_{self._counter_id}")},
-            "via_device": (DOMAIN, self.account_id),
+            "via_device_id": coordinator.account_device_id,
             "name": self._attr_name,
             "manufacturer": "СКС",
             "model": counter.get("model") or counter.get("serial"),
@@ -536,7 +536,7 @@ class SksCounterRateSensor(SksBaseSensor):
         super().__init__(coordinator, account_id)
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"counter_{account_id}_{self._counter_id}")},
-            "via_device": (DOMAIN, self.account_id),
+            "via_device_id": coordinator.account_device_id,
         }
 
     def _last(self) -> dict[str, Any]:
@@ -572,7 +572,7 @@ class SksCounterCheckDateSensor(SksBaseSensor):
         super().__init__(coordinator, account_id)
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"counter_{account_id}_{self._counter_id}")},
-            "via_device": (DOMAIN, self.account_id),
+            "via_device_id": coordinator.account_device_id,
         }
 
     @property
