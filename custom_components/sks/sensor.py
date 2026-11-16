@@ -12,8 +12,9 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import UnitOfVolume
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
@@ -87,6 +88,7 @@ async def async_setup_entry(
     sensors: list[SensorEntity] = [
         SksBalanceSensor(coordinator, account_id),
         SksChargedSensor(coordinator, account_id),
+        SksChargedTotalSensor(coordinator, account_id),
         SksConsumptionSensor(coordinator, account_id),
         SksNotificationsSensor(coordinator, account_id),
         SksLastPaymentSensor(coordinator, account_id),
@@ -293,10 +295,10 @@ class SksChargedSensor(SksAccountSensor):
         self._attr_unique_id = f"{DOMAIN}_{account_id}_charged"
         self._attr_name = "Начислено"
         self._attr_icon = "mdi:receipt-text"
-        # monetary + total — доступен как «entity tracking the total costs»
-        # в дашборде (его статистика бэкфиллится помесячными суммами).
+        # Сумма за последний период — без state_class: как total без
+        # last_reset HA считал бы смену месяца разностью. Для статистики и
+        # энерго-дашборда — «Начислено итого».
         self._attr_device_class = SensorDeviceClass.MONETARY
-        self._attr_state_class = SensorStateClass.TOTAL
         self._attr_native_unit_of_measurement = RUB
         super().__init__(coordinator, account_id)
 
@@ -344,6 +346,105 @@ class SksChargedSensor(SksAccountSensor):
                 for a in self._accruals()[:24]
             ],
         }
+
+
+class SksChargedTotalSensor(SksAccountSensor, RestoreEntity):
+    """Накопительная сумма начислений — источник стоимости для энерго-дашборда.
+
+    «Начислено» показывает сумму за последний период; как ``total`` без
+    ``last_reset`` HA считал бы смену месяца разностью «новый − старый».
+    Здесь каждый новый период прибавляется к сумме, поэтому прирост
+    статистики равен начислению за этот период по его тарифу.
+
+    Сумма и последний учтённый период переживают рестарт (RestoreEntity):
+    кабинет показывает только окно последних месяцев, пересчитать итог
+    заново по нему нельзя. Пока не закончен импорт истории, сенсор
+    недоступен — компилятор статистики не запишет «нулевую точку» раньше
+    импортированного хвоста.
+    """
+
+    def __init__(self, coordinator: SksCoordinator, account_id: str):
+        self._attr_unique_id = f"{DOMAIN}_{account_id}_charged_total"
+        self._attr_name = "Начислено итого"
+        self._attr_icon = "mdi:cash-multiple"
+        self._attr_device_class = SensorDeviceClass.MONETARY
+        self._attr_state_class = SensorStateClass.TOTAL
+        self._attr_native_unit_of_measurement = RUB
+        self._total: float | None = None
+        self._last_period: str | None = None
+        super().__init__(coordinator, account_id)
+
+    def _points(self) -> list[tuple[str, float]]:
+        """(ISO date of the period, charged) sorted by period."""
+        points = []
+        for row in self._accruals():
+            date = _iso(row.get("_dt") or row.get("date"))
+            value = _float(row.get("charged"))
+            if date and value is not None:
+                points.append((date, value))
+        return sorted(points)
+
+    def _fold(self) -> None:
+        """Add periods newer than the last counted one to the total."""
+        points = self._points()
+        if not points:
+            return
+        if self._total is None or self._last_period is None:
+            # First run: the whole visible history — the same rows the
+            # statistics import sums up, so state and statistics agree.
+            self._total = round(sum(v for _, v in points), 2)
+            self._last_period = points[-1][0]
+            return
+        new = [(d, v) for d, v in points if d > self._last_period]
+        if new:
+            self._total = round(self._total + sum(v for _, v in new), 2)
+            self._last_period = new[-1][0]
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (extra := await self.async_get_last_extra_data()) is not None:
+            data = extra.as_dict()
+            total = _float(data.get("total"))
+            if total is not None and data.get("last_period"):
+                self._total = total
+                self._last_period = str(data["last_period"])
+        self._fold()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._fold()
+        super()._handle_coordinator_update()
+
+    @property
+    def available(self) -> bool:
+        return (
+            super().available
+            and self.coordinator.history_ready
+            and self._total is not None
+        )
+
+    @property
+    def native_value(self):
+        return self._total
+
+    @property
+    def extra_state_attributes(self):
+        return {"last_period": self._last_period}
+
+    @property
+    def extra_restore_state_data(self) -> ExtraStoredData:
+        return _ChargedTotalData(self._total, self._last_period)
+
+
+class _ChargedTotalData(ExtraStoredData):
+    """Restored running total of the «Начислено итого» sensor."""
+
+    def __init__(self, total: float | None, last_period: str | None) -> None:
+        self.total = total
+        self.last_period = last_period
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"total": self.total, "last_period": self.last_period}
 
 
 class SksLastPaymentSensor(SksAccountSensor):

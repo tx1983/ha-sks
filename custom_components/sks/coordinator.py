@@ -37,6 +37,9 @@ class SksCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Registry id of the account («ЛС») device — set in async_setup_entry,
         # meter devices link to it through via_device_id.
         self.account_device_id: str | None = None
+        # Set once this run's statistics backfill has finished —
+        # «Начислено итого» stays unavailable until then.
+        self.history_ready = False
         # Values typed into the reading NumberEntities, waiting for the
         # submit button: {counter_id: value} (counter_id == serial).
         self.pending: dict[str, float] = {}

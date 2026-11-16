@@ -159,6 +159,9 @@ async def _async_import_history(
         await async_import_history(hass, coordinator)
     except Exception:
         _LOGGER.exception("Не удалось импортировать историю счётчиков")
+    finally:
+        coordinator.history_ready = True
+        coordinator.async_update_listeners()
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: SksConfigEntry) -> None:

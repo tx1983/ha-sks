@@ -336,13 +336,18 @@ async def async_import_history(
             lambda counter=counter: _reading_stats(counter),
         )
 
-    # --- monthly charged (₽) ----------------------------------------------
+    # --- running total of monthly charges (₽) ------------------------------
+    # «Начислено итого»: its state is the running total itself, so every
+    # imported row has state == sum, like the live sensor.
     add(
         registry.async_get_entity_id(
-            "sensor", DOMAIN, f"{DOMAIN}_{account_id}_charged"
+            "sensor", DOMAIN, f"{DOMAIN}_{account_id}_charged_total"
         ),
         RUB,
-        lambda: _cumulative_stats(_accrual_rows(coordinator), "charged"),
+        lambda: [
+            StatisticData(start=s["start"], state=s["sum"], sum=s["sum"])
+            for s in _cumulative_stats(_accrual_rows(coordinator), "charged")
+        ],
     )
 
     # --- monthly consumption (m³) ------------------------------------------
