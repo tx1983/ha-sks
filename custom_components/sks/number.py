@@ -85,9 +85,12 @@ class SksReadingNumber(CoordinatorEntity[SksCoordinator], NumberEntity):
 
     @property
     def native_value(self) -> float | None:
-        """Typed-in value if pending, else the last known reading."""
+        """Typed-in value if pending, else the just-submitted value the
+        cabinet does not list yet, else the last known reading."""
         if self._counter_id in self.coordinator.pending:
             return self.coordinator.pending[self._counter_id]
+        if self._counter_id in self.coordinator.submitted:
+            return self.coordinator.submitted[self._counter_id]
         return _float(self._counter().get("reading"))
 
     @property
@@ -95,6 +98,7 @@ class SksReadingNumber(CoordinatorEntity[SksCoordinator], NumberEntity):
         counter = self._counter()
         return {
             "pending": self.coordinator.pending.get(self._counter_id),
+            "submitted": self.coordinator.submitted.get(self._counter_id),
             "serial": counter.get("serial"),
             "group": counter.get("group"),
             "assembly_id": counter.get("assembly_id"),
